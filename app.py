@@ -10,6 +10,7 @@ from copy import deepcopy
 from datetime import datetime
 import json
 from pathlib import Path
+from supabase import create_client
 
 from business_logic import (
     Material, ParametrosOperacionais, ParametrosComerciais,
@@ -114,8 +115,13 @@ def secao(t): st.markdown(f'<div class="secao-titulo">{t}</div>',unsafe_allow_ht
 
 CORES=[AZUL,VERDE,"#D6CCA6","#4A7A8A","#8FA840","#2C5F6E","#B8C870","#C4B890","#1A4A56","#E0A050","#7A5A3A"]
 
-# ── PERSISTÊNCIA ──────────────────────────────────
-DADOS_PATH = Path(__file__).parent / "fertigeo_dados.json"
+# ── SUPABASE ──────────────────────────────────────
+SUPABASE_URL = "https://rrkunsulkjhnlzwsrpqc.supabase.co"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJya3Vuc3Vsa2pobmx6d3NycHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODkxNzAsImV4cCI6MjA5MTc2NTE3MH0.AgRBpMT9M9oYk-h2mcdEh6ir3HQky364JqnXceDuQp0"
+
+@st.cache_resource
+def get_supabase():
+    return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def material_para_dict(m):
     return {"nome":m.nome,"volume_ton":m.volume_ton,"preco_ton":m.preco_ton,
@@ -139,31 +145,41 @@ def dict_para_params_op(d):
         d.get("frete_ton",0),d.get("overhead_pct",0))
 
 def salvar_dados():
-    dados = []
-    for prop in st.session_state.propriedades:
-        cenarios_json = []
-        for cen in prop["cenarios"]:
-            cenarios_json.append({
-                "nome": cen["nome"],
-                "materiais": [material_para_dict(m) for m in cen["materiais"]],
-                "params_op": params_op_para_dict(cen["params_op"]),
+    try:
+        dados = []
+        for prop in st.session_state.propriedades:
+            cenarios_json = []
+            for cen in prop["cenarios"]:
+                cenarios_json.append({
+                    "nome": cen["nome"],
+                    "materiais": [material_para_dict(m) for m in cen["materiais"]],
+                    "params_op": params_op_para_dict(cen["params_op"]),
+                })
+            dados.append({
+                "nome": prop["nome"],
+                "responsavel": prop.get("responsavel",""),
+                "area_ha": prop.get("area_ha",1000),
+                "cenarios": cenarios_json,
+                "historico": prop.get("historico",[]),
             })
-        dados.append({
-            "nome": prop["nome"],
-            "responsavel": prop.get("responsavel",""),
-            "area_ha": prop.get("area_ha",1000),
-            "cenarios": cenarios_json,
-            "historico": prop.get("historico",[]),
-        })
-    DADOS_PATH.write_text(json.dumps({"propriedades": dados,
-                                       "prop_idx": st.session_state.prop_idx},
-                                      ensure_ascii=False, indent=2))
+        payload = {"propriedades": dados, "prop_idx": st.session_state.prop_idx}
+        sb = get_supabase()
+        # Atualiza o único registro existente
+        res = sb.table("propriedades").select("id").limit(1).execute()
+        if res.data:
+            sb.table("propriedades").update({"dados": payload}).eq("id", res.data[0]["id"]).execute()
+        else:
+            sb.table("propriedades").insert({"dados": payload}).execute()
+    except Exception as e:
+        st.warning(f"Erro ao salvar: {e}")
 
 def carregar_dados():
-    if not DADOS_PATH.exists():
-        return None
     try:
-        raw = json.loads(DADOS_PATH.read_text())
+        sb = get_supabase()
+        res = sb.table("propriedades").select("dados").limit(1).execute()
+        if not res.data:
+            return None
+        raw = res.data[0]["dados"]
         propriedades = []
         for p in raw.get("propriedades",[]):
             cenarios = []
