@@ -145,33 +145,29 @@ def dict_para_params_op(d):
         d.get("frete_ton",0),d.get("overhead_pct",0))
 
 def salvar_dados():
-    try:
-        dados = []
-        for prop in st.session_state.propriedades:
-            cenarios_json = []
-            for cen in prop["cenarios"]:
-                cenarios_json.append({
-                    "nome": cen["nome"],
-                    "materiais": [material_para_dict(m) for m in cen["materiais"]],
-                    "params_op": params_op_para_dict(cen["params_op"]),
-                })
-            dados.append({
-                "nome": prop["nome"],
-                "responsavel": prop.get("responsavel",""),
-                "area_ha": prop.get("area_ha",1000),
-                "cenarios": cenarios_json,
-                "historico": prop.get("historico",[]),
+    dados = []
+    for prop in st.session_state.propriedades:
+        cenarios_json = []
+        for cen in prop["cenarios"]:
+            cenarios_json.append({
+                "nome": cen["nome"],
+                "materiais": [material_para_dict(m) for m in cen["materiais"]],
+                "params_op": params_op_para_dict(cen["params_op"]),
             })
-        payload = {"propriedades": dados, "prop_idx": st.session_state.prop_idx}
-        sb = get_supabase()
-        # Atualiza o único registro existente
-        res = sb.table("propriedades").select("id").limit(1).execute()
-        if res.data:
-            sb.table("propriedades").update({"dados": payload}).eq("id", res.data[0]["id"]).execute()
-        else:
-            sb.table("propriedades").insert({"dados": payload}).execute()
-    except Exception as e:
-        st.warning(f"Erro ao salvar: {e}")
+        dados.append({
+            "nome": prop["nome"],
+            "responsavel": prop.get("responsavel",""),
+            "area_ha": prop.get("area_ha",1000),
+            "cenarios": cenarios_json,
+            "historico": prop.get("historico",[]),
+        })
+    payload = {"propriedades": dados, "prop_idx": st.session_state.prop_idx}
+    sb = get_supabase()
+    res = sb.table("propriedades").select("id").limit(1).execute()
+    if res.data:
+        sb.table("propriedades").update({"dados": payload}).eq("id", res.data[0]["id"]).execute()
+    else:
+        sb.table("propriedades").insert({"dados": payload}).execute()
 
 def carregar_dados():
     try:
@@ -260,8 +256,11 @@ with st.sidebar:
 
     st.markdown("---")
     if st.button("💾 Salvar Dados", use_container_width=True, key="btn_salvar"):
-        salvar_dados()
-        st.success("Salvo!")
+        try:
+            salvar_dados()
+            st.success("✅ Salvo no Supabase!")
+        except Exception as e:
+            st.error(f"Erro ao salvar: {e}")
     st.markdown('<p>Fertigeo · Agência de Inteligência no Agronegócio</p>', unsafe_allow_html=True)
 
 # ── HERO ──────────────────────────────────────────
