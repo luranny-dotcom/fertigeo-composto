@@ -326,12 +326,17 @@ def formulario_materiais(materiais, prefixo):
         "Mg %": st.column_config.NumberColumn("Mg %", min_value=0.0, max_value=100.0, step=0.1, format="%.3f"),
     }
 
-    edited = st.data_editor(
-        st.session_state[_df_key], column_config=col_config,
-        use_container_width=True, num_rows="dynamic",
-        hide_index=True,
-    )
-    st.session_state[_df_key] = edited
+    with st.form(key=f"{prefixo}_form"):
+        edited = st.data_editor(
+            st.session_state[_df_key], column_config=col_config,
+            use_container_width=True, num_rows="dynamic",
+            hide_index=True,
+        )
+        submitted = st.form_submit_button("💾 Aplicar alterações", use_container_width=False)
+
+    if submitted:
+        st.session_state[_df_key] = edited
+        st.rerun()
 
     # Totais baseados no df salvo
     df_atual = st.session_state[_df_key]
