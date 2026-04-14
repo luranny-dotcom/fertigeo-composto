@@ -544,7 +544,8 @@ elif pagina == "🏠 Dashboard Executivo":
                                   embalagem_ton=float(cen["params_op"].embalagem_ton))
     res = rodar_simulacao_completa(cen["materiais"], op,
                                    ParametrosComerciais(margem_desejada_pct=margem, volume_negociado_ton=vol),
-                                   ParametrosAdubacaoQuimica(), ParametrosAdubacaoSafrinha())
+                                   ParametrosAdubacaoQuimica(preco_N_ton=0, preco_P_ton=0, preco_K_ton=0),
+                                   ParametrosAdubacaoSafrinha(volume_P_ton=0, volume_K_ton=0))
     f,prod,q,c = res["formulacao"],res["producao"],res["quimica"],res["comercial"]
 
     secao(f"🔑 Indicadores-Chave — {cen['nome']}")
@@ -717,11 +718,32 @@ elif pagina == "💰 Simulação Comercial":
                                  value=float(calcular_formulacao(cen["materiais"])["total_volume_ton"]),
                                  min_value=0.0, step=50.0)
 
+    secao("🌿 Comparativo com Adubação Química (opcional)")
+    st.caption("Preencha para calcular a economia vs adubação química. Deixe zerado para ignorar o comparativo.")
+    qa1,qa2,qa3 = st.columns(3)
+    qb1,qb2,qb3 = st.columns(3)
+    q_preco_N   = qa1.number_input("Preço Fertilizante N (R$/ton)",  value=0.0,    min_value=0.0, step=50.0, key="sim_qN")
+    q_gnt_N     = qa2.number_input("Garantia N no fertilizante (%)", value=45.0,   min_value=0.0, max_value=100.0, step=1.0, key="sim_gN")
+    q_preco_P   = qa3.number_input("Preço Fertilizante P (R$/ton)",  value=1080.0, min_value=0.0, step=50.0, key="sim_qP")
+    q_gnt_P     = qb1.number_input("Garantia P no fertilizante (%)", value=21.0,   min_value=0.0, max_value=100.0, step=1.0, key="sim_gP")
+    q_preco_K   = qb2.number_input("Preço Fertilizante K (R$/ton)",  value=1300.0, min_value=0.0, step=50.0, key="sim_qK")
+    q_gnt_K     = qb3.number_input("Garantia K no fertilizante (%)", value=60.0,   min_value=0.0, max_value=100.0, step=1.0, key="sim_gK")
+
+    params_quim = ParametrosAdubacaoQuimica(
+        garantia_N=q_gnt_N/100, preco_N_ton=q_preco_N,
+        garantia_P=q_gnt_P/100, preco_P_ton=q_preco_P,
+        garantia_K=q_gnt_K/100, preco_K_ton=q_preco_K,
+    )
+
     com_p = ParametrosComerciais(margem_desejada_pct=margem, impostos_pct=impostos,
                                   desconto_comercial_pct=desconto, volume_negociado_ton=vol_neg)
     fs = calcular_formulacao(cen["materiais"])
     ps = calcular_producao(fs, op_sim)
     cs = calcular_comercial(fs, ps, com_p)
+
+    # Calcula comparativo químico com parâmetros editáveis
+    from business_logic import calcular_adubacao_quimica as _calc_quim
+    qs = _calc_quim(ps, op_sim, params_quim, ParametrosAdubacaoSafrinha(volume_P_ton=0, volume_K_ton=0))
 
     st.markdown("---"); secao("📊 Resultado")
     r1,r2 = st.columns([2,1])
@@ -734,6 +756,7 @@ elif pagina == "💰 Simulação Comercial":
             ("Receita Bruta",      fmt_brl(cs["receita_bruta"]),    fmt_ton(cs["vol_negociado"]),    ""),
             ("Lucro Bruto",        fmt_brl(cs["lucro_bruto"]),      f"margem {fmt_pct(cs['margem_bruta_pct'])}", "positivo" if cs["lucro_bruto"]>0 else "negativo"),
             ("Ponto de Equilíbrio",fmt_ton(cs["ponto_equilibrio_ton"]), "volume mínimo",             ""),
+            ("Saldo vs Químico/ha", fmt_brl(qs["saldo_ha"]), f"economia {fmt_pct(qs['economia_pct'])}", "positivo" if qs["saldo_ha"]>0 else ("negativo" if qs["saldo_ha"]<0 else "")),
         ]:
             st.markdown(kpi(label,val,sub,tipo), unsafe_allow_html=True)
 
