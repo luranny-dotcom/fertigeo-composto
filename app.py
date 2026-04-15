@@ -865,6 +865,62 @@ elif pagina == "📊 Comparação de Cenários":
         yaxis=dict(showgrid=True,gridcolor=CINZA2), margin=dict(t=50,b=30,l=60,r=20))
     st.plotly_chart(fig_c, use_container_width=True)
 
+    # ── Exportar PDF ──────────────────────────────
+    st.markdown("---")
+    if st.button("⬇️ Exportar Comparativo em PDF"):
+        # Monta HTML da tabela para o PDF
+        colunas = ["Indicador"] + [r["nome"] for r in resultados]
+        linhas = []
+        for label,ext,tipo,maior_melhor in indicadores:
+            valores = [ext(r) for r in resultados]
+            melhor = max(valores) if maior_melhor else min(valores)
+            linha = [label]
+            for v in valores:
+                if tipo=="R$": txt=fmt_brl(v)
+                elif tipo=="%": txt=fmt_pct(v)
+                else: txt=f"{v:,.1f} {tipo}".replace(",","X").replace(".",",").replace("X",".")
+                destaque = " style='font-weight:700;color:#00313C;'" if v==melhor else ""
+                linha.append(f"<span{destaque}>{'★ ' if v==melhor else ''}{txt}</span>")
+            linhas.append(linha)
+
+        thead = "".join(f"<th style='background:#00313C;color:white;padding:10px 14px;text-align:{'left' if i==0 else 'right'};font-size:.8rem;letter-spacing:.04em;'>{c}</th>" for i,c in enumerate(colunas))
+        tbody = ""
+        for idx_l, linha in enumerate(linhas):
+            bg = "#F5F5F2" if idx_l % 2 == 0 else "white"
+            cells = "".join(f"<td style='padding:9px 14px;text-align:{'left' if i==0 else 'right'};font-size:.85rem;border-bottom:1px solid #E8E8E3;'>{c}</td>" for i,c in enumerate(linha))
+            tbody += f"<tr style='background:{bg};'>{cells}</tr>"
+
+        data_hoje = datetime.now().strftime("%d/%m/%Y")
+        html_pdf = f"""<!DOCTYPE html>
+<html><head><meta charset='utf-8'>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;600&display=swap');
+  body {{ font-family:'DM Sans',sans-serif; color:#00313C; margin:0; padding:32px; }}
+  .header {{ display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px; border-bottom:3px solid #A2B34C; padding-bottom:16px; }}
+  .logo {{ font-family:'DM Serif Display',serif; font-size:1.8rem; color:#00313C; }}
+  .sub {{ color:#A2B34C; font-size:.75rem; font-weight:600; letter-spacing:.06em; }}
+  .meta {{ text-align:right; font-size:.8rem; color:#666; }}
+  h2 {{ font-family:'DM Serif Display',serif; font-size:1.3rem; color:#00313C; margin:24px 0 12px; }}
+  table {{ width:100%; border-collapse:collapse; }}
+  .footer {{ margin-top:32px; text-align:center; font-size:.72rem; color:#AAA; border-top:1px solid #E8E8E3; padding-top:12px; }}
+</style></head><body>
+<div class='header'>
+  <div><div class='logo'>🌱 Fertigeo</div><div class='sub'>AGÊNCIA DE INTELIGÊNCIA NO AGRONEGÓCIO</div></div>
+  <div class='meta'><b>Comparativo de Cenários</b><br>{p['nome']}<br>{data_hoje}</div>
+</div>
+<h2>⚖️ Comparativo de Cenários — {p['nome']}</h2>
+<table><thead><tr>{thead}</tr></thead><tbody>{tbody}</tbody></table>
+<div class='footer'>Fertigeo · Simulador de Composto Orgânico · {data_hoje}</div>
+</body></html>"""
+
+        st.download_button(
+            label="💾 Baixar PDF",
+            data=html_pdf.encode("utf-8"),
+            file_name=f"Comparativo_{p['nome'].replace(' ','_')}_{datetime.now().strftime('%Y%m%d')}.html",
+            mime="text/html",
+        )
+        st.caption("💡 No navegador: abra o arquivo e use Ctrl+P → Salvar como PDF")
+
 
 # ═══════════════════════════════════════════════════════
 # PÁGINA 5: SENSIBILIDADE
