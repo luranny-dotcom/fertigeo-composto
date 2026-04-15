@@ -10,7 +10,7 @@ from copy import deepcopy
 from datetime import datetime
 import json
 from pathlib import Path
-from supabase import create_client
+import requests
 
 from business_logic import (
     Material, ParametrosOperacionais, ParametrosComerciais,
@@ -118,10 +118,12 @@ CORES=[AZUL,VERDE,"#D6CCA6","#4A7A8A","#8FA840","#2C5F6E","#B8C870","#C4B890","#
 # ── SUPABASE ──────────────────────────────────────
 SUPABASE_URL = "https://rrkunsulkjhnlzwsrpqc.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJya3Vuc3Vsa2pobmx6d3NycHFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxODkxNzAsImV4cCI6MjA5MTc2NTE3MH0.AgRBpMT9M9oYk-h2mcdEh6ir3HQky364JqnXceDuQp0"
-
-@st.cache_resource
-def get_supabase():
-    return create_client(SUPABASE_URL, SUPABASE_KEY)
+SB_HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
 
 def material_para_dict(m):
     return {"nome":m.nome,"volume_ton":m.volume_ton,"preco_ton":m.preco_ton,
@@ -162,20 +164,24 @@ def salvar_dados():
             "historico": prop.get("historico",[]),
         })
     payload = {"propriedades": dados, "prop_idx": st.session_state.prop_idx}
-    sb = get_supabase()
-    res = sb.table("propriedades").select("id").limit(1).execute()
-    if res.data:
-        sb.table("propriedades").update({"dados": payload}).eq("id", res.data[0]["id"]).execute()
+    # Busca o ID existente
+    r = requests.get(f"{SUPABASE_URL}/rest/v1/propriedades?select=id&limit=1", headers=SB_HEADERS)
+    rows = r.json()
+    if rows:
+        rid = rows[0]["id"]
+        requests.patch(f"{SUPABASE_URL}/rest/v1/propriedades?id=eq.{rid}",
+                       headers=SB_HEADERS, json={"dados": payload})
     else:
-        sb.table("propriedades").insert({"dados": payload}).execute()
+        requests.post(f"{SUPABASE_URL}/rest/v1/propriedades",
+                      headers=SB_HEADERS, json={"dados": payload})
 
 def carregar_dados():
     try:
-        sb = get_supabase()
-        res = sb.table("propriedades").select("dados").limit(1).execute()
-        if not res.data:
+        r = requests.get(f"{SUPABASE_URL}/rest/v1/propriedades?select=dados&limit=1", headers=SB_HEADERS)
+        rows = r.json()
+        if not rows:
             return None
-        raw = res.data[0]["dados"]
+        raw = rows[0]["dados"]
         propriedades = []
         for p in raw.get("propriedades",[]):
             cenarios = []
