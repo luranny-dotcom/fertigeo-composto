@@ -836,7 +836,6 @@ elif pagina == "📊 Comparação de Cenários":
         ("Preço/Ton (R$)",        lambda r:r["comercial"]["preco_sugerido"],        "R$",  False),
         ("Lucro Bruto (R$)",      lambda r:r["comercial"]["lucro_bruto"],           "R$",  True),
         ("Margem Bruta (%)",      lambda r:r["comercial"]["margem_bruta_pct"],      "%",   True),
-        ("Saldo vs Químico/ha",   lambda r:r["quimica"]["saldo_ha"],                "R$",  True),
     ]
     cols_h = st.columns([3]+[2]*len(resultados))
     cols_h[0].markdown("<b>Indicador</b>", unsafe_allow_html=True)
@@ -890,6 +889,45 @@ elif pagina == "📊 Comparação de Cenários":
             cells = "".join(f"<td style='padding:9px 14px;text-align:{'left' if i==0 else 'right'};font-size:.85rem;border-bottom:1px solid #E8E8E3;'>{c}</td>" for i,c in enumerate(linha))
             tbody += f"<tr style='background:{bg};'>{cells}</tr>"
 
+        # Gera gráficos como imagem base64
+        import base64
+        fig_pdf = go.Figure()
+        for i,r in enumerate(resultados):
+            fig_pdf.add_trace(go.Bar(name=r["nome"],
+                x=["Custo/Ton","Preço/Ton","Lucro/Ton"],
+                y=[r["producao"]["custo_total_ton"],r["comercial"]["preco_sugerido"],r["comercial"]["lucro_bruto"]/max(vol_c,1)],
+                marker_color=CORES[i%len(CORES)],
+                text=[fmt_brl(v) for v in [r["producao"]["custo_total_ton"],r["comercial"]["preco_sugerido"],r["comercial"]["lucro_bruto"]/max(vol_c,1)]],
+                textposition="outside"))
+        fig_pdf.update_layout(barmode="group",height=380,width=860,
+            title=dict(text="Custo, Preço e Lucro por Tonelada (R$)",font=dict(family="DM Serif Display",size=15,color="#00313C")),
+            paper_bgcolor="white",plot_bgcolor="white",
+            yaxis=dict(showgrid=True,gridcolor="#E8E8E3"),margin=dict(t=60,b=40,l=60,r=20))
+
+        fig_nut = go.Figure()
+        for i,r in enumerate(resultados):
+            fig_nut.add_trace(go.Bar(name=r["nome"],
+                x=["N","P","K","B","S","Zn","Mg"],
+                y=[r["producao"]["N_kg_ha"],r["producao"]["P_kg_ha"],r["producao"]["K_kg_ha"],
+                   r["producao"]["B_kg_ha"],r["producao"]["S_kg_ha"],r["producao"]["Zn_kg_ha"],
+                   r["producao"].get("Mg_kg_ha",0)],
+                marker_color=CORES[i%len(CORES)],
+                text=[f"{v:.1f}" for v in [r["producao"]["N_kg_ha"],r["producao"]["P_kg_ha"],r["producao"]["K_kg_ha"],
+                   r["producao"]["B_kg_ha"],r["producao"]["S_kg_ha"],r["producao"]["Zn_kg_ha"],
+                   r["producao"].get("Mg_kg_ha",0)]],
+                textposition="outside"))
+        fig_nut.update_layout(barmode="group",height=380,width=860,
+            title=dict(text="Nutrientes por Hectare (kg/ha)",font=dict(family="DM Serif Display",size=15,color="#00313C")),
+            paper_bgcolor="white",plot_bgcolor="white",
+            yaxis=dict(showgrid=True,gridcolor="#E8E8E3"),margin=dict(t=60,b=40,l=60,r=20))
+
+        try:
+            img1 = base64.b64encode(fig_pdf.to_image(format="png",scale=2)).decode()
+            img2 = base64.b64encode(fig_nut.to_image(format="png",scale=2)).decode()
+            graficos_html = f"<h2 style='font-family:DM Serif Display,serif;color:#00313C;margin:28px 0 12px;'>📊 Custo, Preço e Lucro</h2><img src='data:image/png;base64,{img1}' style='width:100%;margin-bottom:24px;'><h2 style='font-family:DM Serif Display,serif;color:#00313C;margin:28px 0 12px;'>🌿 Nutrientes por Hectare</h2><img src='data:image/png;base64,{img2}' style='width:100%;margin-bottom:24px;'>"
+        except Exception:
+            graficos_html = "<p style='color:#888;font-size:.85rem;margin-top:24px;'><i>Gráficos não disponíveis — instale kaleido para exportar imagens.</i></p>"
+
         data_hoje = datetime.now().strftime("%d/%m/%Y")
         html_pdf = f"""<!DOCTYPE html>
 <html><head><meta charset='utf-8'>
@@ -910,6 +948,7 @@ elif pagina == "📊 Comparação de Cenários":
 </div>
 <h2>⚖️ Comparativo de Cenários — {p['nome']}</h2>
 <table><thead><tr>{thead}</tr></thead><tbody>{tbody}</tbody></table>
+{graficos_html}
 <div class='footer'>Fertigeo · Simulador de Composto Orgânico · {data_hoje}</div>
 </body></html>"""
 
