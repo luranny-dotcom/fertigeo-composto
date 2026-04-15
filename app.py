@@ -585,16 +585,27 @@ elif pagina == "🏠 Dashboard Executivo":
     with cg4: st.plotly_chart(g_quimico(q), use_container_width=True)
 
     secao("🌿 Garantia de Nutrientes")
-    for col,(label,grt,dose) in zip(st.columns(7),[
-        ("N",  f"{f['garantia_N']*100:.3f}%",  f"{prod['N_kg_ha']:.1f} kg/ha"),
-        ("P",  f"{f['garantia_P']*100:.3f}%",  f"{prod['P_kg_ha']:.1f} kg/ha"),
-        ("K",  f"{f['garantia_K']*100:.3f}%",  f"{prod['K_kg_ha']:.1f} kg/ha"),
-        ("B",  f"{f['garantia_B']*100:.4f}%",  f"{prod['B_kg_ha']:.2f} kg/ha"),
-        ("S",  f"{f['garantia_S']*100:.3f}%",  f"{prod['S_kg_ha']:.1f} kg/ha"),
-        ("Zn", f"{f['garantia_Zn']*100:.4f}%", f"{prod['Zn_kg_ha']:.2f} kg/ha"),
-        ("Mg", f"{f['garantia_Mg']*100:.3f}%", f"{prod['Mg_kg_ha']:.1f} kg/ha"),
-    ]):
-        col.markdown(kpi(label,grt,dose), unsafe_allow_html=True)
+    nutrientes = [
+        ("N",  f"{f['garantia_N']*100:.2f}%",  f"{prod['N_kg_ha']:.1f} kg/ha"),
+        ("P",  f"{f['garantia_P']*100:.2f}%",  f"{prod['P_kg_ha']:.1f} kg/ha"),
+        ("K",  f"{f['garantia_K']*100:.2f}%",  f"{prod['K_kg_ha']:.1f} kg/ha"),
+        ("B",  f"{f['garantia_B']*100:.2f}%",  f"{prod['B_kg_ha']:.2f} kg/ha"),
+        ("S",  f"{f['garantia_S']*100:.2f}%",  f"{prod['S_kg_ha']:.1f} kg/ha"),
+        ("Zn", f"{f['garantia_Zn']*100:.2f}%", f"{prod['Zn_kg_ha']:.2f} kg/ha"),
+        ("Mg", f"{f['garantia_Mg']*100:.2f}%", f"{prod['Mg_kg_ha']:.1f} kg/ha"),
+    ]
+    nut_html = "<div style='display:grid;grid-template-columns:repeat(7,1fr);gap:.6rem;margin-top:.5rem;'>"
+    for label, grt, dose in nutrientes:
+        nut_html += f"""
+        <div style='background:white;border:1px solid #E8E8E3;border-top:3px solid #A2B34C;border-radius:10px;
+                    padding:.8rem .6rem;text-align:center;min-height:90px;display:flex;flex-direction:column;
+                    justify-content:center;gap:.3rem;'>
+            <div style='font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#7A8C6E;'>{label}</div>
+            <div style='font-family:"DM Serif Display",serif;font-size:1.3rem;color:#00313C;line-height:1;'>{grt}</div>
+            <div style='font-size:.68rem;color:#AAA;'>{dose}</div>
+        </div>"""
+    nut_html += "</div>"
+    st.markdown(nut_html, unsafe_allow_html=True)
 
 
 # ═══════════════════════════════════════════════════════
